@@ -1,10 +1,14 @@
 package main
 
 import (
-	"github.com/gin-gonic/gin"
+	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
+
+	"github.com/gin-gonic/gin"
+	"github.com/joho/godotenv"
 )
 
 type Person struct {
@@ -24,7 +28,17 @@ var (
 )
 
 func init() {
-	dynamo = connectDynamo()
+	if err := godotenv.Load(); err != nil {
+		log.Print("No .env file found")
+	}
+
+	awsKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	awsAccessKey := os.Getenv("AWS_ACCESS_KEY")
+	region := os.Getenv("AWS_REGION")
+
+	fmt.Println(awsAccessKey, awsKeyId, region)
+
+	dynamo = connectDynamo(awsKeyId, awsAccessKey, region)
 }
 
 type Wallet struct {
@@ -38,6 +52,7 @@ type Wallet struct {
 
 func main() {
 
+	// gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
 	// Create table and add data

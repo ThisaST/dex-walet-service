@@ -2,12 +2,9 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
-	"github.com/go-redis/redis/v7"
 	"github.com/joho/godotenv"
-	"jwt-app/auth"
-	"jwt-app/handler"
-	"jwt-app/middleware"
 	"log"
 	"net/http"
 	"os"
@@ -15,42 +12,85 @@ import (
 	"time"
 )
 
+var (
+	TableName  = "user"
+	RegionName = "us-east-1"
+)
+
 func init() {
 	if err := godotenv.Load(); err != nil {
 		log.Print("No .env file found")
 	}
+
+	awsKeyId := os.Getenv("AWS_ACCESS_KEY_ID")
+	awsAccessKey := os.Getenv("AWS_ACCESS_KEY")
+	region := os.Getenv("AWS_REGION")
+
+	dynamo = connectDynamo(awsKeyId, awsAccessKey, region)
 }
 
-func NewRedisDB(host, port, password string) *redis.Client {
-	redisClient := redis.NewClient(&redis.Options{
-		Addr:     host + ":" + port,
-		Password: password,
-		DB:       0,
-	})
-	return redisClient
+type User struct {
+	Id       int
+	Name     string
+	Email    string
+	Password string
+}
+
+type Response struct {
+	token string
+	user  User
 }
 
 func main() {
+	gin.SetMode(gin.ReleaseMode)
 
 	appAddr := ":" + os.Getenv("PORT")
-
-	//redis details
-	redis_host := os.Getenv("REDIS_HOST")
-	redis_port := os.Getenv("REDIS_PORT")
-	redis_password := os.Getenv("REDIS_PASSWORD")
-
-	redisClient := NewRedisDB(redis_host, redis_port, redis_password)
-
-	var rd = auth.NewAuth(redisClient)
-	var tk = auth.NewToken()
-	var service = handlers.NewProfile(rd, tk)
-
 	var router = gin.Default()
 
-	router.POST("/login", service.Login)
-	router.POST("/todo", middleware.TokenAuthMiddleware(), service.CreateTodo)
-	router.POST("/logout", middleware.TokenAuthMiddleware(), service.Logout)
-	router.POST("/refresh", service.Refresh)
+	err := CreateUserTable()
+	if err != nil {
+		log.Println(err)
+	}
+
+	user := User{
+		Id:       123456789,
+		Name:     "Thisara",
+		Email:    "thisa1@gmail.com",
+		Password: "user@123",
+	}
+
+	err = Register(user)
+	if err != nil {
+		log.Println(err)
+	}
+
+	router.POST("/login", func(c *gin.Context) {
+		body := User{}
+
+		// using BindJson method to serialize body with struct
+		if err := c.BindJSON(&body); err != nil {
+			c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+
+		user, err := Login(body)
+
+		fmt.Println(err)
+		if err != nil {
+			c.JSON(http.StatusUnauthorized, err)
+			return
+		}
+
+		res := Response{
+			token: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiaWF0IjoxNTE2MjM5MDIyfQ.SflKxwRJSMeKKF2QT4fwpMeJf36POk6yJV_adQssw5c",
+			user:  user,
+		}
+
+		c.JSON(http.StatusOK, gin.H{
+			"token": res.token,
+			"user":  res.user,
+		})
+	})
 
 	srv := &http.Server{
 		Addr:    appAddr,

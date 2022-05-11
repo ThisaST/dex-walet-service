@@ -1,19 +1,26 @@
 package main
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/dynamodb"
 	"github.com/aws/aws-sdk-go/service/dynamodb/dynamodbattribute"
-	"strconv"
 )
 
 var dynamo *dynamodb.DynamoDB
 
 // connectDynamo returns a dynamoDB client
-func connectDynamo() (db *dynamodb.DynamoDB) {
+func connectDynamo(awsKeyId string, awsAccessKey string, region string) (db *dynamodb.DynamoDB) {
+
+	fmt.Println("codes", awsAccessKey, awsKeyId, region)
+
 	return dynamodb.New(session.Must(session.NewSession(&aws.Config{
-		Region: &RegionName,
+		Region:      &RegionName,
+		Credentials: credentials.NewStaticCredentials(awsKeyId, awsAccessKey, ""),
 	})))
 }
 
