@@ -16,7 +16,7 @@ COPY . .
 RUN go build -o exchange-service .
 
 # Expose port 9090 to the outside world
-EXPOSE 9090
+EXPOSE 3000
 
 # Command to run the executable
 CMD ["./exchange-service"]

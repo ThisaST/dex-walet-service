@@ -16,7 +16,7 @@ COPY . .
 RUN go build -o auth-service .
 
 # Expose port 8080 to the outside world
-EXPOSE 8080
+EXPOSE 3000
 
 # Command to run the executable
 CMD ["./auth-service"]
