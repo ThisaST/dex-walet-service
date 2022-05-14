@@ -1,0 +1,367 @@
+AWSTemplateFormatVersion: 2010-09-09
+Metadata:
+  "AWS::CloudFormation::Interface":
+    ParameterGroups:
+      - Label:
+          default: "Defaulted Keys"
+        Parameters:
+          - AwsRegion
+          - Port
+          - VPCId
+          - SecurityGroups
+          - Subnets
+      - Label:
+          default: "Access IAM"
+        Parameters:
+          - AwsAccessKeyId
+          - AwsSecretAccessKey
+Parameters:
+  AwsAccessKeyId:
+    Type: String
+    Default: keyId
+  AwsSecretAccessKey:
+    Type: String
+    Default: secretKey
+  AwsRegion:
+    Type: String
+    Default: us-east-1
+  Port:
+    Type: String
+    Default: 3000
+  VPCId:
+    Type: String
+    Default: vpc-c57f5ebf
+  SecurityGroups:
+    Type: CommaDelimitedList
+    Default: sg-9d15c8cb
+  Subnets:
+    Type: CommaDelimitedList
+    Default: "subnet-5f706538,subnet-0280902c"
+Resources:
+  AuthTaskDefinitionForDex:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      Family: AuthTaskDefinitionForDex
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: .5 vCPU
+      Memory: 1 GB
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: "arn:aws:iam::477043663148:role/ecsTaskExecutionRole"
+      ContainerDefinitions:
+        - LogConfiguration:
+            Options:
+              awslogs-group: /ecs/AuthTaskDefinitionForDex
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: ecs
+              awslogs-create-group: "true"
+            LogDriver: awslogs
+          Name: AuthContainer
+          Image: "477043663148.dkr.ecr.us-east-1.amazonaws.com/auth-service:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: "3000"
+              Protocol: tcp
+          Environment:
+            - Name: AwsAccessKeyId
+              Value: !Ref AwsAccessKeyId
+            - Name: AwsSecretAccessKey
+              Value: !Ref AwsSecretAccessKey
+            - Name: AwsRegion
+              Value: !Ref AwsRegion
+            - Name: Port
+              Value: !Ref Port
+    Metadata:
+      "AWS::CloudFormation::Designer":
+        id: 058cccb8-db08-47f9-a913-bb6b0670c77b
+  WalletTaskDefinitionForDex:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      Family: WalletTaskDefinitionForDex
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: .5 vCPU
+      Memory: 1 GB
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: "arn:aws:iam::477043663148:role/ecsTaskExecutionRole"
+      ContainerDefinitions:
+        - LogConfiguration:
+            Options:
+              awslogs-group: /ecs/WalletTaskDefinitionForDex
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: ecs
+              awslogs-create-group: "true"
+            LogDriver: awslogs
+          Name: WalletContainer
+          Image: "477043663148.dkr.ecr.us-east-1.amazonaws.com/dex-wallet-service:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: "3000"
+              Protocol: tcp
+          Environment:
+            - Name: AwsAccessKeyId
+              Value: !Ref AwsAccessKeyId
+            - Name: AwsSecretAccessKey
+              Value: !Ref AwsSecretAccessKey
+            - Name: AwsRegion
+              Value: !Ref AwsRegion
+            - Name: Port
+              Value: !Ref Port
+  ExchangeTaskDefinitionForDex:
+    Type: "AWS::ECS::TaskDefinition"
+    Properties:
+      Family: ExchangeTaskDefinitionForDex
+      NetworkMode: awsvpc
+      RequiresCompatibilities:
+        - FARGATE
+      Cpu: .5 vCPU
+      Memory: 1 GB
+      RuntimePlatform:
+        CpuArchitecture: X86_64
+        OperatingSystemFamily: LINUX
+      ExecutionRoleArn: "arn:aws:iam::477043663148:role/ecsTaskExecutionRole"
+      ContainerDefinitions:
+        - LogConfiguration:
+            Options:
+              awslogs-group: /ecs/ExchangeTaskDefinitionForDex
+              awslogs-region: us-east-1
+              awslogs-stream-prefix: ecs
+              awslogs-create-group: "true"
+            LogDriver: awslogs
+          Name: ExchangeContainer
+          Image: "477043663148.dkr.ecr.us-east-1.amazonaws.com/dex-exchange-service:latest"
+          Essential: true
+          PortMappings:
+            - ContainerPort: "3000"
+              Protocol: tcp
+          Environment:
+            - Name: AwsAccessKeyId
+              Value: !Ref AwsAccessKeyId
+            - Name: AwsSecretAccessKey
+              Value: !Ref AwsSecretAccessKey
+            - Name: AwsRegion
+              Value: !Ref AwsRegion
+            - Name: Port
+              Value: !Ref Port
+  ClusterForDex:
+    Type: "AWS::ECS::Cluster"
+    Properties:
+      CapacityProviders:
+        - FARGATE
+        - FARGATE_SPOT
+      ClusterName: ClusterForDex
+      ClusterSettings:
+        - Name: containerInsights
+          Value: disabled
+      Configuration:
+        ExecuteCommandConfiguration:
+          Logging: DEFAULT
+  AuthTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: AuthTargetGroup
+      VpcId: !Ref VPCId
+      Protocol: HTTP
+      Port: "3000"
+      TargetType: ip
+  WalletTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: WalletTargetGroup
+      VpcId: !Ref VPCId
+      Protocol: HTTP
+      Port: "3000"
+      TargetType: ip
+  ExchangeTargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Name: ExchangeTargetGroup
+      VpcId: !Ref VPCId
+      Protocol: HTTP
+      Port: "3000"
+      TargetType: ip
+  LoadBalancerForDex:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Name: LoadBalancerForDex
+      SecurityGroups: !Ref SecurityGroups
+      Subnets: !Ref Subnets
+      Type: application
+  DefaultListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties:
+      DefaultActions:
+        - TargetGroupArn: !Ref AuthTargetGroup
+          Type: forward
+      LoadBalancerArn: !Ref LoadBalancerForDex
+      Port: 80
+      Protocol: HTTP
+  AuthListenerRule:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref AuthTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /login*
+      ListenerArn: !Ref DefaultListener
+      Priority: 3
+  WalletListenerRule:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref WalletTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /wallet*
+      ListenerArn: !Ref DefaultListener
+      Priority: 1
+  ExchangeListenerRule:
+    Type: "AWS::ElasticLoadBalancingV2::ListenerRule"
+    Properties:
+      Actions:
+        - Type: forward
+          TargetGroupArn: !Ref ExchangeTargetGroup
+      Conditions:
+        - Field: path-pattern
+          Values:
+            - /exchange*
+      ListenerArn: !Ref DefaultListener
+      Priority: 2
+  AuthServiceForDex:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref ClusterForDex
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Base: 0
+          Weight: 1
+      TaskDefinition: !Ref AuthTaskDefinitionForDex
+      ServiceName: AuthServiceForDex
+      DesiredCount: 1
+      LoadBalancers:
+        - ContainerName: AuthContainer
+          ContainerPort: 3000
+          TargetGroupArn: !Ref AuthTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: !Ref SecurityGroups
+          Subnets: !Ref Subnets
+      PlatformVersion: LATEST
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+    DependsOn: AuthListenerRule
+  WalletServiceForDex:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref ClusterForDex
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Base: 0
+          Weight: 1
+      TaskDefinition: !Ref WalletTaskDefinitionForDex
+      ServiceName: WalletServiceForDex
+      DesiredCount: 1
+      LoadBalancers:
+        - ContainerName: WalletContainer
+          ContainerPort: 3000
+          TargetGroupArn: !Ref WalletTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: !Ref SecurityGroups
+          Subnets: !Ref Subnets
+      PlatformVersion: LATEST
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+    DependsOn: WalletListenerRule
+  ExchangeServiceForDex:
+    Type: 'AWS::ECS::Service'
+    Properties:
+      Cluster: !Ref ClusterForDex
+      CapacityProviderStrategy:
+        - CapacityProvider: FARGATE
+          Base: 0
+          Weight: 1
+      TaskDefinition: !Ref ExchangeTaskDefinitionForDex
+      ServiceName: ExchangeServiceForDex
+      DesiredCount: 1
+      LoadBalancers:
+        - ContainerName: ExchangeContainer
+          ContainerPort: 3000
+          TargetGroupArn: !Ref ExchangeTargetGroup
+      NetworkConfiguration:
+        AwsvpcConfiguration:
+          AssignPublicIp: ENABLED
+          SecurityGroups: !Ref SecurityGroups
+          Subnets: !Ref Subnets
+      PlatformVersion: LATEST
+      DeploymentConfiguration:
+        MaximumPercent: 200
+        MinimumHealthyPercent: 100
+      DeploymentController:
+        Type: ECS
+    DependsOn: ExchangeListenerRule
+Outputs:
+  AuthTaskDefinitionForDex:
+    Description: Auth Task Definition For Dex created.
+    Value: !Ref AuthTaskDefinitionForDex
+  WalletTaskDefinitionForDex:
+    Description: Wallet Task Definition For Dex created.
+    Value: !Ref WalletTaskDefinitionForDex
+  ExchangeTaskDefinitionForDex:
+    Description: Exchange Task Definition For Dex created.
+    Value: !Ref ExchangeTaskDefinitionForDex
+  ClusterForDex:
+    Description: Cluster For Dex created.
+    Value: !Ref ClusterForDex
+  AuthTargetGroup:
+    Description: Auth Target Group created.
+    Value: !Ref AuthTargetGroup
+  WalletTargetGroup:
+    Description: Wallet Target Group created.
+    Value: !Ref WalletTargetGroup
+  ExchangeTargetGroup:
+    Description: The created exchange target group.
+    Value: !Ref ExchangeTargetGroup
+  LoadBalancerForDex:
+    Description: Load Balancer For Dex created.
+    Value: !Ref LoadBalancerForDex
+  DefaultListener:
+    Description: Default Listener created.
+    Value: !Ref DefaultListener
+  AuthListenerRule:
+    Description: Auth Listener Rule created.
+    Value: !Ref AuthListenerRule
+  WalletListenerRule:
+    Description: Wallet Listener Rule created.
+    Value: !Ref WalletListenerRule
+  ExchangeListenerRule:
+    Description: Exchange Listener Rule created.
+    Value: !Ref ExchangeListenerRule
+  AuthServiceForDex:
+    Description: Auth Service For Dex created.
+    Value: !Ref AuthServiceForDex
+  WalletServiceForDex:
+    Description: Wallet Service For Dex created.
+    Value: !Ref WalletServiceForDex
+  ExchangeServiceForDex:
+    Description: Exchange Service For Dex created.
+    Value: !Ref ExchangeServiceForDex
